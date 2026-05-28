@@ -3,7 +3,7 @@ import {
   Home, Calendar, User, Search, MapPin, Star, 
   ChevronRight, ArrowLeft, Clock, Shield, Award, 
   CreditCard, Settings, HelpCircle, LogOut, Bell,
-  Battery, Wifi, Signal
+  Battery, Wifi, Signal, Briefcase, Plus, Minus
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 // Deep teal: text-slate-800, bg-slate-900 for dark mode, but we will use specific tailwind colors.
 // Teal-800 as primary brand, amber-500 as accent.
 
-type ViewState = "home" | "bookings" | "profile" | "provider_detail" | "booking_confirmation" | "service_map";
+type ViewState = "home" | "bookings" | "profile" | "provider_detail" | "booking_confirmation" | "service_map" | "provider_map";
 
 interface BookingDetails {
   provider: Provider;
@@ -53,7 +53,8 @@ export function HomeServicesApp() {
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  
+  const [isProvider, setIsProvider] = useState(false);
+
   const navigateTo = (newView: ViewState, provider?: Provider) => {
     if (provider) setSelectedProvider(provider);
     setViewState(newView);
@@ -69,11 +70,13 @@ export function HomeServicesApp() {
     setViewState("booking_confirmation");
   };
 
+  const hideNav = view === "provider_detail" || view === "booking_confirmation" || view === "service_map";
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 sm:p-8 font-sans">
       {/* Mobile Device Frame */}
       <div className="w-[375px] h-[812px] bg-white rounded-[3rem] shadow-2xl overflow-hidden border-[8px] border-slate-800 relative flex flex-col">
-        
+
         {/* Status Bar */}
         <div className="h-12 w-full flex items-center justify-between px-6 pt-2 bg-transparent absolute top-0 z-50 text-slate-800">
           <div className="text-[14px] font-semibold">9:41</div>
@@ -83,20 +86,23 @@ export function HomeServicesApp() {
             <Battery className="w-5 h-5" />
           </div>
         </div>
-        {/* Notch Area (Visual only) */}
+        {/* Notch */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-slate-800 rounded-b-3xl z-50"></div>
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 relative pb-20 pt-12">
-          {view === "home" && <HomeScreen onNavigate={navigateTo} onOpenServiceMap={openServiceMap} />}
+          {view === "home"     && <HomeScreen onNavigate={navigateTo} onOpenServiceMap={openServiceMap} />}
           {view === "bookings" && <BookingsScreen />}
-          {view === "profile" && <ProfileScreen />}
+          {view === "profile"  && <ProfileScreen isProvider={isProvider} onToggleProvider={() => setIsProvider(p => !p)} />}
           {view === "service_map" && (
             <ServiceProvidersMapScreen
               category={selectedCategory}
               onBack={() => setViewState("home")}
               onBookProvider={(p) => navigateTo("provider_detail", p)}
             />
+          )}
+          {view === "provider_map" && (
+            <ProviderOrdersMapScreen onBack={() => setViewState("home")} />
           )}
           {view === "provider_detail" && selectedProvider && (
             <ProviderDetailScreen provider={selectedProvider} onBack={() => navigateTo("home")} onConfirm={confirmBooking} />
@@ -107,26 +113,14 @@ export function HomeServicesApp() {
         </div>
 
         {/* Bottom Navigation */}
-        {view !== "provider_detail" && view !== "booking_confirmation" && view !== "service_map" && (
+        {!hideNav && (
           <div className="h-20 bg-white border-t border-slate-100 flex items-center justify-around px-2 pb-5 absolute bottom-0 w-full z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-            <NavItem 
-              Icon={Home} 
-              label="Home" 
-              active={view === "home"} 
-              onClick={() => navigateTo("home")} 
-            />
-            <NavItem 
-              Icon={Calendar} 
-              label="Bookings" 
-              active={view === "bookings"} 
-              onClick={() => navigateTo("bookings")} 
-            />
-            <NavItem 
-              Icon={User} 
-              label="Profile" 
-              active={view === "profile"} 
-              onClick={() => navigateTo("profile")} 
-            />
+            <NavItem Icon={Home}     label="Home"     active={view === "home"}     onClick={() => navigateTo("home")} />
+            <NavItem Icon={Calendar} label="Bookings" active={view === "bookings"} onClick={() => navigateTo("bookings")} />
+            {isProvider && (
+              <NavItem Icon={Briefcase} label="Jobs" active={view === "provider_map"} onClick={() => navigateTo("provider_map")} />
+            )}
+            <NavItem Icon={User}     label="Profile"  active={view === "profile"}  onClick={() => navigateTo("profile")} />
           </div>
         )}
       </div>
@@ -423,7 +417,13 @@ function ServiceProvidersMapScreen({
   onBookProvider: (p: Provider) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
   const activeProvider = MAP_PROVIDERS.find((p) => p.id === activeId) ?? null;
+
+  const vbW = 359 / zoom;
+  const vbH = 580 / zoom;
+  const vbX = (359 - vbW) / 2;
+  const vbY = (580 - vbH) / 2;
 
   return (
     <div className="flex flex-col h-full relative animate-in fade-in duration-200">
@@ -446,7 +446,7 @@ function ServiceProvidersMapScreen({
 
       {/* Full-screen SVG Map */}
       <div className="absolute inset-0 bg-[#e8ede8]">
-        <svg viewBox="0 0 359 580" className="w-full h-full" preserveAspectRatio="xMidYMid slice">
+        <svg viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`} className="w-full h-full" preserveAspectRatio="xMidYMid slice">
           {/* Base */}
           <rect width="359" height="580" fill="#e8ede8" />
 
@@ -544,6 +544,23 @@ function ServiceProvidersMapScreen({
             <div className="w-2 h-2 rounded-full bg-teal-500 -ml-1 -mt-1" />
             <span className="text-slate-600">You</span>
           </div>
+        </div>
+
+        {/* Zoom controls */}
+        <div className="absolute bottom-4 right-3 flex flex-col gap-1.5 z-20">
+          <button
+            onClick={() => setZoom(z => Math.min(3, +(z + 0.5).toFixed(1)))}
+            className="w-9 h-9 rounded-xl bg-white shadow-md border border-slate-100 flex items-center justify-center text-slate-700 active:bg-slate-50"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <div className="text-center text-[9px] font-bold text-slate-400 leading-none">{Math.round(zoom * 100)}%</div>
+          <button
+            onClick={() => setZoom(z => Math.max(0.5, +(z - 0.5).toFixed(1)))}
+            className="w-9 h-9 rounded-xl bg-white shadow-md border border-slate-100 flex items-center justify-center text-slate-700 active:bg-slate-50"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -1059,7 +1076,7 @@ function BookingsScreen() {
   );
 }
 
-function ProfileScreen() {
+function ProfileScreen({ isProvider, onToggleProvider }: { isProvider: boolean; onToggleProvider: () => void }) {
   return (
     <div className="animate-in fade-in duration-300 min-h-full bg-slate-50">
       <div className="px-6 py-8 flex flex-col items-center border-b border-slate-200 bg-white">
@@ -1128,6 +1145,18 @@ function ProfileScreen() {
             <SettingRow icon={<CreditCard className="w-5 h-5" />} label="Payment Methods" />
             <SettingRow icon={<Bell className="w-5 h-5" />} label="Notifications" />
             <SettingRow icon={<HelpCircle className="w-5 h-5" />} label="Help & Support" />
+            <div className="p-4 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors" onClick={onToggleProvider}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isProvider ? "bg-teal-100 text-teal-700" : "bg-slate-100 text-slate-500"}`}>
+                <Briefcase className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-sm text-slate-800">Provider Mode</p>
+                <p className="text-xs text-slate-400 mt-0.5">{isProvider ? "You're visible as a service pro" : "Switch to find and accept jobs"}</p>
+              </div>
+              <div className={`w-12 h-6 rounded-full transition-colors relative ${isProvider ? "bg-teal-500" : "bg-slate-200"}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${isProvider ? "translate-x-6" : "translate-x-0.5"}`} />
+              </div>
+            </div>
             <div className="p-4 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors text-red-600">
               <LogOut className="w-5 h-5" />
               <span className="font-medium text-sm">Sign Out</span>
@@ -1145,6 +1174,220 @@ function SettingRow({ icon, label }: { icon: React.ReactNode, label: string }) {
       {icon}
       <span className="flex-1 font-medium text-sm">{label}</span>
       <ChevronRight className="w-4 h-4 text-slate-400" />
+    </div>
+  );
+}
+
+// --- PROVIDER ORDERS MAP ---
+
+const CUSTOMER_ORDERS = [
+  { id: "o1", name: "James T.",   service: "Plumbing",     address: "42 Oak St",          price: 120, urgency: "Urgent",   emoji: "🔧", x: 80,  y: 100, avatar: "JT" },
+  { id: "o2", name: "Mia K.",     service: "Electrical",   address: "115 Market Ave",      price: 95,  urgency: "Today",    emoji: "⚡", x: 220, y: 65,  avatar: "MK" },
+  { id: "o3", name: "Raj P.",     service: "Cleaning",     address: "88 Pine Rd",          price: 60,  urgency: "Flexible", emoji: "🧹", x: 155, y: 160, avatar: "RP" },
+  { id: "o4", name: "Chloe W.",   service: "HVAC",         address: "300 Elm Blvd",        price: 150, urgency: "Urgent",   emoji: "❄️", x: 285, y: 120, avatar: "CW" },
+  { id: "o5", name: "Tom B.",     service: "Landscaping",  address: "22 Maple Dr",         price: 80,  urgency: "Today",    emoji: "🌿", x: 50,  y: 220, avatar: "TB" },
+  { id: "o6", name: "Ana S.",     service: "Handyman",     address: "500 Cedar Ln",        price: 70,  urgency: "Flexible", emoji: "🪛", x: 195, y: 250, avatar: "AS" },
+];
+
+const URGENCY_COLOR: Record<string, string> = {
+  Urgent:   "#ef4444",
+  Today:    "#f59e0b",
+  Flexible: "#10b981",
+};
+
+function ProviderOrdersMapScreen({ onBack }: { onBack: () => void }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const order = CUSTOMER_ORDERS.find(o => o.id === activeId) ?? null;
+
+  const vbW = 359 / zoom;
+  const vbH = 520 / zoom;
+  const vbX = (359 - vbW) / 2;
+  const vbY = (520 - vbH) / 2;
+
+  return (
+    <div className="flex flex-col h-full relative animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 z-30 px-4 pt-4 pb-3 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center border border-slate-100"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-700" />
+        </button>
+        <div className="flex-1 bg-white rounded-xl shadow-md px-4 py-2.5 border border-slate-100">
+          <p className="text-xs text-slate-500 leading-none">New orders near you</p>
+          <p className="text-sm font-bold text-slate-800 leading-tight mt-0.5">Find Jobs</p>
+        </div>
+        <div className="bg-amber-500 text-white text-xs font-bold rounded-xl px-3 py-2 shadow-md">
+          {CUSTOMER_ORDERS.length} open
+        </div>
+      </div>
+
+      {/* Full-screen SVG Map */}
+      <div className="absolute inset-0 bg-[#e8ede8]">
+        <svg viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`} className="w-full h-full" preserveAspectRatio="xMidYMid slice">
+          <rect width="359" height="520" fill="#e8ede8" />
+
+          {/* City blocks */}
+          {[
+            [0,0,75,110],[95,0,100,110],[215,0,144,110],
+            [0,130,60,120],[80,130,120,120],[220,130,139,120],
+            [0,270,80,120],[100,270,110,120],[230,270,129,120],
+            [0,410,70,110],[90,410,130,110],[240,410,119,110],
+          ].map(([x,y,w,h],i) => (
+            <rect key={i} x={x} y={y} width={w} height={h} fill="#dce8dc" rx="3" />
+          ))}
+
+          {/* Roads horizontal */}
+          {[110,130,250,270,390,410].map((y,i) => (
+            <rect key={i} x="0" y={y} width="359" height="20" fill="#fff" />
+          ))}
+          {/* Roads vertical */}
+          {[75,195,215].map((x,i) => (
+            <rect key={i} x={x} y="0" width="20" height="520" fill="#fff" />
+          ))}
+          {/* Dashes horizontal */}
+          {[120,260,400].map((y,i) => (
+            <line key={i} x1="0" y1={y} x2="359" y2={y} stroke="#d1d5d1" strokeWidth="1" strokeDasharray="14,10" />
+          ))}
+          {/* Dashes vertical */}
+          {[85,205].map((x,i) => (
+            <line key={i} x1={x} y1="0" x2={x} y2="520" stroke="#d1d5d1" strokeWidth="1" strokeDasharray="14,10" />
+          ))}
+          {/* Labels */}
+          <text x="170" y="108" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600">ELM ST</text>
+          <text x="170" y="248" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600">CEDAR AVE</text>
+          <text x="86" y="190" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600" transform="rotate(-90,86,190)">OAK BLVD</text>
+
+          {/* Park */}
+          <rect x="80" y="270" width="110" height="100" fill="#b7ddb7" rx="4" />
+          <text x="135" y="325" textAnchor="middle" fontSize="8" fill="#4d7c4d" fontWeight="600">🌳 Park</text>
+
+          {/* Provider (you) dot */}
+          <circle cx="155" cy="190" r="18" fill="#7c3aed" opacity="0.15">
+            <animate attributeName="r" values="14;22;14" dur="2.4s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.2;0;0.2" dur="2.4s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="155" cy="190" r="9" fill="#7c3aed" stroke="#fff" strokeWidth="3" />
+          <text x="155" y="194" textAnchor="middle" fontSize="8" fill="#fff" fontWeight="700">ME</text>
+
+          {/* Customer order pins */}
+          {CUSTOMER_ORDERS.map((o) => (
+            <g key={o.id} onClick={() => setActiveId(activeId === o.id ? null : o.id)} style={{ cursor: "pointer" }}>
+              {activeId === o.id && (
+                <circle cx={o.x} cy={o.y} r="22" fill={URGENCY_COLOR[o.urgency]} opacity="0.2">
+                  <animate attributeName="r" values="18;28;18" dur="1.4s" repeatCount="indefinite" />
+                </circle>
+              )}
+              {/* Pin body */}
+              <circle
+                cx={o.x}
+                cy={o.y}
+                r="15"
+                fill={activeId === o.id ? URGENCY_COLOR[o.urgency] : "#fff"}
+                stroke={URGENCY_COLOR[o.urgency]}
+                strokeWidth="3"
+              />
+              <text x={o.x} y={o.y + 5} textAnchor="middle" fontSize="11">
+                {o.emoji}
+              </text>
+              {/* Urgency dot */}
+              <circle cx={o.x + 10} cy={o.y - 10} r="5" fill={URGENCY_COLOR[o.urgency]} stroke="#fff" strokeWidth="2" />
+            </g>
+          ))}
+        </svg>
+
+        {/* Legend */}
+        <div className="absolute top-24 right-3 bg-white/90 backdrop-blur-sm rounded-xl p-2.5 shadow-sm text-[10px] space-y-1.5 border border-slate-100">
+          {Object.entries(URGENCY_COLOR).map(([label, color]) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full border border-white shadow-sm" style={{ background: color }} />
+              <span className="text-slate-600">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Zoom controls */}
+        <div className="absolute bottom-4 right-3 flex flex-col gap-1.5 z-20">
+          <button
+            onClick={() => setZoom(z => Math.min(3, +(z + 0.5).toFixed(1)))}
+            className="w-9 h-9 rounded-xl bg-white shadow-md border border-slate-100 flex items-center justify-center text-slate-700 active:bg-slate-50"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <div className="text-center text-[9px] font-bold text-slate-400 leading-none">{Math.round(zoom * 100)}%</div>
+          <button
+            onClick={() => setZoom(z => Math.max(0.5, +(z - 0.5).toFixed(1)))}
+            className="w-9 h-9 rounded-xl bg-white shadow-md border border-slate-100 flex items-center justify-center text-slate-700 active:bg-slate-50"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Sheet — order detail */}
+      {order ? (
+        <div className="absolute bottom-0 left-0 right-0 z-30 bg-white rounded-t-3xl shadow-2xl border-t border-slate-100 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-4" />
+          <div className="px-5 pb-6">
+            <div className="flex items-start gap-4 mb-4">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+                style={{ background: URGENCY_COLOR[order.urgency] + "22" }}
+              >
+                {order.emoji}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="font-bold text-slate-800">{order.service}</p>
+                  <Badge
+                    className="text-[10px] border-none font-semibold"
+                    style={{ background: URGENCY_COLOR[order.urgency] + "22", color: URGENCY_COLOR[order.urgency] }}
+                  >
+                    {order.urgency}
+                  </Badge>
+                </div>
+                <p className="text-sm text-slate-500">{order.address}</p>
+                <div className="flex items-center gap-3 mt-2">
+                  <div className="flex items-center gap-1">
+                    <User className="w-3 h-3 text-slate-400" />
+                    <span className="text-xs text-slate-600">{order.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-slate-400" />
+                    <span className="text-xs text-slate-600">0.8 mi away</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-lg font-bold text-teal-700">${order.price}</p>
+                <p className="text-[10px] text-slate-400">est. payout</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl border-slate-200 text-slate-600 h-11"
+                onClick={() => setActiveId(null)}
+              >
+                Skip
+              </Button>
+              <Button
+                className="flex-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white h-11 font-bold px-6"
+                onClick={() => setActiveId(null)}
+              >
+                Accept Job  →
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="absolute bottom-4 left-4 right-16 z-20 bg-white/90 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-md border border-slate-100 flex items-center gap-3">
+          <Briefcase className="w-4 h-4 text-amber-500 shrink-0" />
+          <p className="text-xs text-slate-600">Tap an order pin to see details and accept</p>
+        </div>
+      )}
     </div>
   );
 }
