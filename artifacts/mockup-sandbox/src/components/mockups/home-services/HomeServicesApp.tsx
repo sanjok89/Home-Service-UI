@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 // Deep teal: text-slate-800, bg-slate-900 for dark mode, but we will use specific tailwind colors.
 // Teal-800 as primary brand, amber-500 as accent.
 
-type ViewState = "home" | "bookings" | "profile" | "provider_detail" | "booking_confirmation";
+type ViewState = "home" | "bookings" | "profile" | "provider_detail" | "booking_confirmation" | "service_map";
 
 interface BookingDetails {
   provider: Provider;
@@ -52,10 +52,16 @@ export function HomeServicesApp() {
   const [view, setViewState] = useState<ViewState>("home");
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   
   const navigateTo = (newView: ViewState, provider?: Provider) => {
     if (provider) setSelectedProvider(provider);
     setViewState(newView);
+  };
+
+  const openServiceMap = (category: string) => {
+    setSelectedCategory(category);
+    setViewState("service_map");
   };
 
   const confirmBooking = (details: BookingDetails) => {
@@ -82,9 +88,16 @@ export function HomeServicesApp() {
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50 relative pb-20 pt-12">
-          {view === "home" && <HomeScreen onNavigate={navigateTo} />}
+          {view === "home" && <HomeScreen onNavigate={navigateTo} onOpenServiceMap={openServiceMap} />}
           {view === "bookings" && <BookingsScreen />}
           {view === "profile" && <ProfileScreen />}
+          {view === "service_map" && (
+            <ServiceProvidersMapScreen
+              category={selectedCategory}
+              onBack={() => setViewState("home")}
+              onBookProvider={(p) => navigateTo("provider_detail", p)}
+            />
+          )}
           {view === "provider_detail" && selectedProvider && (
             <ProviderDetailScreen provider={selectedProvider} onBack={() => navigateTo("home")} onConfirm={confirmBooking} />
           )}
@@ -94,7 +107,7 @@ export function HomeServicesApp() {
         </div>
 
         {/* Bottom Navigation */}
-        {view !== "provider_detail" && view !== "booking_confirmation" && (
+        {view !== "provider_detail" && view !== "booking_confirmation" && view !== "service_map" && (
           <div className="h-20 bg-white border-t border-slate-100 flex items-center justify-around px-2 pb-5 absolute bottom-0 w-full z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
             <NavItem 
               Icon={Home} 
@@ -141,111 +154,452 @@ function NavItem({ Icon, label, active, onClick }: { Icon: LucideIconComponent, 
 
 // --- SCREENS ---
 
-function HomeScreen({ onNavigate }: { onNavigate: (view: ViewState, provider?: Provider) => void }) {
+const SERVICE_GALLERY = [
+  {
+    name: "Cleaning",
+    emoji: "🧹",
+    from: "#0d9488",
+    to: "#134e4a",
+    accent: "#5eead4",
+    animClass: "anim-clean",
+    desc: "Deep & regular cleans",
+  },
+  {
+    name: "Plumbing",
+    emoji: "🔧",
+    from: "#1e40af",
+    to: "#1e3a8a",
+    accent: "#93c5fd",
+    animClass: "anim-plumb",
+    desc: "Leaks, pipes & more",
+  },
+  {
+    name: "Electrical",
+    emoji: "⚡",
+    from: "#b45309",
+    to: "#78350f",
+    accent: "#fcd34d",
+    animClass: "anim-elec",
+    desc: "Wiring & fixtures",
+  },
+  {
+    name: "HVAC",
+    emoji: "❄️",
+    from: "#0e7490",
+    to: "#164e63",
+    accent: "#a5f3fc",
+    animClass: "anim-hvac",
+    desc: "Heat & cooling",
+  },
+  {
+    name: "Handyman",
+    emoji: "🪛",
+    from: "#7c3aed",
+    to: "#4c1d95",
+    accent: "#c4b5fd",
+    animClass: "anim-hand",
+    desc: "General repairs",
+  },
+  {
+    name: "Painting",
+    emoji: "🎨",
+    from: "#be185d",
+    to: "#831843",
+    accent: "#f9a8d4",
+    animClass: "anim-paint",
+    desc: "Interior & exterior",
+  },
+  {
+    name: "Landscaping",
+    emoji: "🌿",
+    from: "#15803d",
+    to: "#14532d",
+    accent: "#86efac",
+    animClass: "anim-land",
+    desc: "Lawn & garden",
+  },
+  {
+    name: "Pest Control",
+    emoji: "🐛",
+    from: "#9a3412",
+    to: "#7c2d12",
+    accent: "#fdba74",
+    animClass: "anim-pest",
+    desc: "Safe removal",
+  },
+];
+
+function HomeScreen({ onNavigate, onOpenServiceMap }: {
+  onNavigate: (view: ViewState, provider?: Provider) => void;
+  onOpenServiceMap: (category: string) => void;
+}) {
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-      {/* Header */}
-      <div className="bg-teal-700 text-white px-6 pt-6 pb-20 rounded-b-[2rem]">
-        <div className="flex justify-between items-start mb-6">
+    <div className="animate-in fade-in duration-300 flex flex-col min-h-full">
+      {/* Compact Header */}
+      <div className="bg-teal-700 text-white px-5 pt-5 pb-5">
+        <div className="flex justify-between items-center mb-4">
           <div>
-            <p className="text-teal-100 text-sm font-medium mb-1">Good morning, Sarah</p>
-            <div className="flex items-center text-white font-semibold gap-1">
-              <MapPin className="w-4 h-4 text-amber-400" />
-              San Francisco, CA
-            </div>
+            <p className="text-teal-200 text-xs font-medium">Good morning</p>
+            <p className="text-white font-bold text-base">Sarah 👋</p>
           </div>
-          <Avatar className="w-10 h-10 border-2 border-white/20">
-            <AvatarFallback className="bg-amber-500 text-white">S</AvatarFallback>
-          </Avatar>
+          <div className="flex items-center gap-3">
+            <button className="relative">
+              <Bell className="w-5 h-5 text-teal-200" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-400 rounded-full" />
+            </button>
+            <Avatar className="w-9 h-9 border-2 border-white/30">
+              <AvatarFallback className="bg-amber-500 text-white text-sm font-bold">S</AvatarFallback>
+            </Avatar>
+          </div>
         </div>
-        
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <Input 
-            className="w-full bg-white h-12 pl-12 rounded-xl text-slate-800 border-none shadow-sm placeholder:text-slate-400 focus-visible:ring-amber-500" 
-            placeholder="What do you need help with?" 
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            className="w-full bg-white h-10 pl-9 rounded-xl text-slate-800 border-none shadow-sm placeholder:text-slate-400 text-sm focus-visible:ring-amber-400"
+            placeholder="Search services or pros..."
           />
+        </div>
+        <div className="flex items-center gap-1 mt-3">
+          <MapPin className="w-3 h-3 text-amber-400" />
+          <span className="text-teal-200 text-xs">San Francisco, CA</span>
         </div>
       </div>
 
-      <div className="-mt-10 px-6 space-y-8">
-        {/* Categories */}
-        <div>
-          <h2 className="text-lg font-bold text-slate-800 mb-4 px-1">Quick Book</h2>
-          <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-2 -mx-6 px-6">
-            {CATEGORIES.map(category => (
-              <button 
-                key={category} 
-                className="whitespace-nowrap px-4 py-2.5 bg-white border border-slate-100 rounded-xl shadow-sm text-sm font-medium text-slate-700 hover:border-teal-200 hover:bg-teal-50 transition-colors"
-                onClick={() => onNavigate("provider_detail", PROVIDERS[0])}
+      {/* Gallery Grid */}
+      <div className="flex-1 px-4 pt-5 pb-4">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-base font-bold text-slate-800">Services</h2>
+          <span className="text-xs text-teal-600 font-medium">{SERVICE_GALLERY.length} available</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {SERVICE_GALLERY.map((svc) => (
+            <button
+              key={svc.name}
+              onClick={() => onOpenServiceMap(svc.name)}
+              className={`relative rounded-2xl overflow-hidden h-36 text-left shadow-md active:scale-95 transition-transform ${svc.animClass}`}
+              style={{ background: `linear-gradient(135deg, ${svc.from}, ${svc.to})` }}
+            >
+              {/* Animated shimmer layer */}
+              <div
+                className="absolute inset-0 opacity-20"
+                style={{
+                  background: `radial-gradient(circle at 30% 40%, ${svc.accent} 0%, transparent 60%)`,
+                  animation: `gifPulse-${svc.animClass} 2.4s ease-in-out infinite alternate`,
+                }}
+              />
+              {/* Floating particles */}
+              <div
+                className="absolute w-16 h-16 rounded-full opacity-10"
+                style={{
+                  background: svc.accent,
+                  top: "-12px",
+                  right: "-12px",
+                  animation: `gifFloat 3s ease-in-out infinite alternate`,
+                }}
+              />
+              <div
+                className="absolute w-8 h-8 rounded-full opacity-10"
+                style={{
+                  background: svc.accent,
+                  bottom: "20px",
+                  left: "-8px",
+                  animation: `gifFloat 4s ease-in-out infinite alternate-reverse`,
+                }}
+              />
+              {/* Emoji icon with bounce */}
+              <div
+                className="absolute top-4 left-4 text-3xl"
+                style={{ animation: `gifBounce 1.8s ease-in-out infinite` }}
               >
-                {category}
+                {svc.emoji}
+              </div>
+              {/* Label */}
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <p className="text-white font-bold text-sm leading-tight">{svc.name}</p>
+                <p className="text-white/70 text-[10px] mt-0.5">{svc.desc}</p>
+              </div>
+              {/* Tap ripple hint */}
+              <div className="absolute top-3 right-3 bg-white/20 rounded-full p-1">
+                <ChevronRight className="w-3 h-3 text-white" />
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Quick re-book strip */}
+        <div className="mt-5">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-base font-bold text-slate-800">Book Again</h2>
+            <button className="text-xs font-medium text-teal-600">See all</button>
+          </div>
+          <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
+            {[PROVIDERS[0], PROVIDERS[3], PROVIDERS[1]].map((pro) => (
+              <button
+                key={pro.id}
+                onClick={() => onNavigate("provider_detail", pro)}
+                className="shrink-0 flex flex-col items-center gap-1.5 bg-white rounded-2xl p-3 shadow-sm border border-slate-100 w-20 active:scale-95 transition-transform"
+              >
+                <Avatar className="w-11 h-11">
+                  <AvatarFallback className="bg-teal-100 text-teal-700 font-bold text-sm">{pro.avatar}</AvatarFallback>
+                </Avatar>
+                <p className="text-[10px] font-semibold text-slate-700 text-center leading-tight">{pro.name.split(" ")[0]}</p>
+                <div className="flex items-center gap-0.5">
+                  <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                  <span className="text-[9px] text-slate-500">{pro.rating}</span>
+                </div>
               </button>
             ))}
           </div>
         </div>
-
-        {/* Book Again */}
-        <div>
-          <div className="flex justify-between items-center mb-4 px-1">
-            <h2 className="text-lg font-bold text-slate-800">Book Again</h2>
-            <button className="text-sm font-medium text-teal-600">See all</button>
-          </div>
-          <div className="space-y-3">
-            {[PROVIDERS[0], PROVIDERS[3]].map((pro) => (
-              <Card key={pro.id} className="border-slate-100 shadow-sm rounded-2xl overflow-hidden" onClick={() => onNavigate("provider_detail", pro)}>
-                <CardContent className="p-4 flex items-center gap-4">
-                  <Avatar className="w-12 h-12">
-                    <AvatarFallback className="bg-teal-100 text-teal-700 font-bold">{pro.avatar}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-800">{pro.name}</h3>
-                    <p className="text-sm text-slate-500">{pro.specialty} • Last booked Oct 12</p>
-                  </div>
-                  <Button size="icon" variant="ghost" className="rounded-full text-amber-500 hover:text-amber-600 hover:bg-amber-50">
-                    <Calendar className="w-5 h-5" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Featured Pros */}
-        <div className="pb-6">
-          <h2 className="text-lg font-bold text-slate-800 mb-4 px-1">Featured Pros</h2>
-          <div className="flex overflow-x-auto hide-scrollbar gap-4 pb-4 -mx-6 px-6">
-            {PROVIDERS.map((pro) => (
-              <Card 
-                key={pro.id} 
-                className="min-w-[200px] border-slate-100 shadow-sm rounded-2xl shrink-0"
-                onClick={() => onNavigate("provider_detail", pro)}
-              >
-                <CardContent className="p-5 flex flex-col items-center text-center">
-                  <Avatar className="w-16 h-16 mb-3">
-                    <AvatarFallback className="bg-slate-100 text-slate-600 font-bold text-xl">{pro.avatar}</AvatarFallback>
-                  </Avatar>
-                  <h3 className="font-bold text-slate-800 mb-1">{pro.name}</h3>
-                  <p className="text-xs text-slate-500 mb-2">{pro.specialty}</p>
-                  <div className="flex items-center gap-1 text-sm font-medium text-slate-700 mb-4 bg-slate-50 px-2 py-1 rounded-md">
-                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    {pro.rating}
-                  </div>
-                  <div className="w-full flex justify-between items-center">
-                    <span className="font-bold text-slate-800">${pro.price}<span className="text-xs font-normal text-slate-500">/hr</span></span>
-                    <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white rounded-lg h-8 px-3">Book</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
       </div>
-      
+
       <style>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes gifBounce {
+          0%, 100% { transform: translateY(0px) rotate(-4deg); }
+          50% { transform: translateY(-5px) rotate(4deg); }
+        }
+        @keyframes gifFloat {
+          0% { transform: scale(1) translate(0,0); }
+          100% { transform: scale(1.3) translate(6px, -6px); }
+        }
+        @keyframes gifPulse-anim-clean {
+          0% { opacity: 0.15; transform: scale(1); }
+          100% { opacity: 0.35; transform: scale(1.1); }
+        }
+        @keyframes gifPulse-anim-plumb {
+          0% { opacity: 0.1; transform: scale(1) rotate(0deg); }
+          100% { opacity: 0.3; transform: scale(1.15) rotate(10deg); }
+        }
+        @keyframes gifPulse-anim-elec {
+          0% { opacity: 0.2; transform: scale(0.9); }
+          50% { opacity: 0.5; }
+          100% { opacity: 0.2; transform: scale(1.1); }
+        }
+        @keyframes gifPulse-anim-hvac {
+          0% { transform: translateX(0); opacity: 0.15; }
+          100% { transform: translateX(8px); opacity: 0.35; }
+        }
+        @keyframes gifPulse-anim-hand {
+          0% { opacity: 0.1; }
+          100% { opacity: 0.4; transform: scale(1.2); }
+        }
+        @keyframes gifPulse-anim-paint {
+          0% { opacity: 0.2; border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+          100% { opacity: 0.4; border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+        }
+        @keyframes gifPulse-anim-land {
+          0% { opacity: 0.15; transform: translateY(0); }
+          100% { opacity: 0.3; transform: translateY(-8px); }
+        }
+        @keyframes gifPulse-anim-pest {
+          0% { opacity: 0.1; transform: rotate(0deg) scale(1); }
+          100% { opacity: 0.3; transform: rotate(15deg) scale(1.2); }
+        }
       `}</style>
+    </div>
+  );
+}
+
+const MAP_PROVIDERS = [
+  { ...PROVIDERS[0], x: 72,  y: 95,  available: true  },
+  { ...PROVIDERS[1], x: 200, y: 68,  available: true  },
+  { ...PROVIDERS[2], x: 260, y: 112, available: false },
+  { ...PROVIDERS[3], x: 130, y: 130, available: true  },
+  { id: "5", name: "Tom Baker",    specialty: "General Tech", rating: 4.6, reviews: 77, price: 70,  avatar: "TB", x: 170, y: 45,  available: true  },
+  { id: "6", name: "Priya Nair",   specialty: "Specialist",   rating: 4.8, reviews: 112, price: 82, avatar: "PN", x: 305, y: 80,  available: false },
+] as (Provider & { x: number; y: number; available: boolean })[];
+
+function ServiceProvidersMapScreen({
+  category,
+  onBack,
+  onBookProvider,
+}: {
+  category: string;
+  onBack: () => void;
+  onBookProvider: (p: Provider) => void;
+}) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeProvider = MAP_PROVIDERS.find((p) => p.id === activeId) ?? null;
+
+  return (
+    <div className="flex flex-col h-full relative animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 z-30 px-4 pt-4 pb-3 flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="w-9 h-9 rounded-full bg-white shadow-md flex items-center justify-center border border-slate-100"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-700" />
+        </button>
+        <div className="flex-1 bg-white rounded-xl shadow-md px-4 py-2.5 border border-slate-100">
+          <p className="text-xs text-slate-500 leading-none">Showing pros near you</p>
+          <p className="text-sm font-bold text-slate-800 leading-tight mt-0.5">{category}</p>
+        </div>
+        <div className="bg-teal-600 text-white text-xs font-bold rounded-xl px-3 py-2 shadow-md">
+          {MAP_PROVIDERS.filter(p => p.available).length} available
+        </div>
+      </div>
+
+      {/* Full-screen SVG Map */}
+      <div className="absolute inset-0 bg-[#e8ede8]">
+        <svg viewBox="0 0 359 580" className="w-full h-full" preserveAspectRatio="xMidYMid slice">
+          {/* Base */}
+          <rect width="359" height="580" fill="#e8ede8" />
+
+          {/* City blocks */}
+          {[
+            [0,0,80,120], [100,0,100,120], [220,0,139,120],
+            [0,140,65,130], [85,140,120,130], [225,140,134,130],
+            [0,290,80,110], [100,290,110,110], [230,290,129,110],
+            [0,420,70,160], [90,420,130,160], [240,420,119,160],
+          ].map(([x,y,w,h], i) => (
+            <rect key={i} x={x} y={y} width={w} height={h} fill="#dce8dc" rx="3" />
+          ))}
+
+          {/* Roads horizontal */}
+          {[120,140,270,290,400,420,540].map((y, i) => (
+            <rect key={i} x="0" y={y} width="359" height="20" fill="#fff" />
+          ))}
+          {/* Roads vertical */}
+          {[80,200,220].map((x, i) => (
+            <rect key={i} x={x} y="0" width="20" height="580" fill="#fff" />
+          ))}
+
+          {/* Road dashes horizontal */}
+          {[130,150,280,300,410,430].map((y, i) => (
+            <line key={i} x1="0" y1={y} x2="359" y2={y} stroke="#d1d5d1" strokeWidth="1" strokeDasharray="14,10" />
+          ))}
+          {/* Road dashes vertical */}
+          {[90,210].map((x, i) => (
+            <line key={i} x1={x} y1="0" x2={x} y2="580" stroke="#d1d5d1" strokeWidth="1" strokeDasharray="14,10" />
+          ))}
+
+          {/* Street labels */}
+          <text x="170" y="117" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600">MARKET ST</text>
+          <text x="170" y="267" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600">BROADWAY AVE</text>
+          <text x="91" y="200" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600" transform="rotate(-90,91,200)">MAIN ST</text>
+          <text x="211" y="200" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600" transform="rotate(-90,211,200)">OAK BLVD</text>
+
+          {/* Park */}
+          <rect x="100" y="290" width="110" height="110" fill="#b7ddb7" rx="4" />
+          <text x="155" y="350" textAnchor="middle" fontSize="8" fill="#4d7c4d" fontWeight="600">🌳 City Park</text>
+
+          {/* User location pin */}
+          <circle cx="155" cy="200" r="18" fill="#0d9488" opacity="0.15">
+            <animate attributeName="r" values="14;22;14" dur="2.4s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.2;0;0.2" dur="2.4s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="155" cy="200" r="9" fill="#0d9488" stroke="#fff" strokeWidth="3" />
+          <circle cx="155" cy="200" r="3" fill="#fff" />
+
+          {/* Provider dots */}
+          {MAP_PROVIDERS.map((p) => (
+            <g key={p.id} onClick={() => setActiveId(activeId === p.id ? null : p.id)} style={{ cursor: "pointer" }}>
+              {activeId === p.id && (
+                <circle cx={p.x} cy={p.y} r="22" fill={p.available ? "#0d9488" : "#94a3b8"} opacity="0.2">
+                  <animate attributeName="r" values="18;26;18" dur="1.5s" repeatCount="indefinite" />
+                </circle>
+              )}
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r="16"
+                fill={p.available ? (activeId === p.id ? "#0d9488" : "#0f766e") : "#94a3b8"}
+                stroke="#fff"
+                strokeWidth="3"
+              />
+              <text
+                x={p.x}
+                y={p.y + 4}
+                textAnchor="middle"
+                fontSize="8"
+                fill="#fff"
+                fontWeight="700"
+              >
+                {p.avatar}
+              </text>
+              {p.available && (
+                <circle cx={p.x + 10} cy={p.y - 10} r="5" fill="#10b981" stroke="#fff" strokeWidth="2" />
+              )}
+            </g>
+          ))}
+        </svg>
+
+        {/* Legend */}
+        <div className="absolute top-24 right-3 bg-white/90 backdrop-blur-sm rounded-xl p-2.5 shadow-sm text-[10px] space-y-1.5 border border-slate-100">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-teal-600 border-2 border-white shadow-sm" />
+            <span className="text-slate-600">Available</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-slate-400 border-2 border-white shadow-sm" />
+            <span className="text-slate-600">Busy</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-teal-600 border-2 border-white shadow-sm" />
+            <div className="w-2 h-2 rounded-full bg-teal-500 -ml-1 -mt-1" />
+            <span className="text-slate-600">You</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Sheet — provider detail */}
+      {activeProvider ? (
+        <div className="absolute bottom-0 left-0 right-0 z-30 bg-white rounded-t-3xl shadow-2xl border-t border-slate-100 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-4" />
+          <div className="px-5 pb-6">
+            <div className="flex items-center gap-4 mb-4">
+              <Avatar className="w-14 h-14">
+                <AvatarFallback className="bg-teal-100 text-teal-700 font-bold text-lg">{activeProvider.avatar}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-slate-800">{activeProvider.name}</p>
+                  {MAP_PROVIDERS.find(p => p.id === activeProvider.id)?.available ? (
+                    <Badge className="bg-emerald-100 text-emerald-700 border-none text-[10px] font-semibold">Available</Badge>
+                  ) : (
+                    <Badge className="bg-slate-100 text-slate-500 border-none text-[10px] font-semibold">Busy</Badge>
+                  )}
+                </div>
+                <p className="text-sm text-slate-500 mt-0.5">{activeProvider.specialty}</p>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                    <span className="text-xs font-semibold text-slate-700">{activeProvider.rating}</span>
+                    <span className="text-xs text-slate-400">({activeProvider.reviews})</span>
+                  </div>
+                  <span className="text-xs font-bold text-teal-700">${activeProvider.price}/hr</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl border-teal-200 text-teal-700 h-11"
+                onClick={() => setActiveId(null)}
+              >
+                Close
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-700 text-white h-11 font-semibold"
+                onClick={() => onBookProvider(activeProvider)}
+              >
+                Book Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Idle hint bar */
+        <div className="absolute bottom-4 left-4 right-4 z-20 bg-white/90 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-md border border-slate-100 flex items-center gap-3">
+          <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+          <p className="text-xs text-slate-600">Tap a provider dot to see details and book</p>
+        </div>
+      )}
     </div>
   );
 }
