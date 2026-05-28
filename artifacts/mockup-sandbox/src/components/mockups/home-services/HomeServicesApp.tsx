@@ -97,19 +97,19 @@ export function HomeServicesApp() {
         {view !== "provider_detail" && view !== "booking_confirmation" && (
           <div className="h-20 bg-white border-t border-slate-100 flex items-center justify-around px-2 pb-5 absolute bottom-0 w-full z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
             <NavItem 
-              icon={<Home />} 
+              Icon={Home} 
               label="Home" 
               active={view === "home"} 
               onClick={() => navigateTo("home")} 
             />
             <NavItem 
-              icon={<Calendar />} 
+              Icon={Calendar} 
               label="Bookings" 
               active={view === "bookings"} 
               onClick={() => navigateTo("bookings")} 
             />
             <NavItem 
-              icon={<User />} 
+              Icon={User} 
               label="Profile" 
               active={view === "profile"} 
               onClick={() => navigateTo("profile")} 
@@ -121,7 +121,9 @@ export function HomeServicesApp() {
   );
 }
 
-function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) {
+type LucideIconComponent = React.ComponentType<{ className?: string }>;
+
+function NavItem({ Icon, label, active, onClick }: { Icon: LucideIconComponent, label: string, active: boolean, onClick: () => void }) {
   return (
     <button 
       onClick={onClick}
@@ -130,9 +132,7 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode, labe
       }`}
     >
       <div className={`p-1 rounded-xl transition-all ${active ? "bg-teal-50" : ""}`}>
-        {React.cloneElement(icon as React.ReactElement, { 
-          className: `w-6 h-6 ${active ? "fill-teal-700/20" : ""}` 
-        })}
+        <Icon className={`w-6 h-6 ${active ? "fill-teal-700/20" : ""}`} />
       </div>
       <span className={`text-[10px] font-medium ${active ? "font-semibold" : ""}`}>{label}</span>
     </button>
@@ -540,30 +540,109 @@ function BookingsScreen() {
         </TabsList>
         
         <TabsContent value="active" className="space-y-4">
-          {/* Live Tracking Card */}
-          <Card className="border-teal-100 bg-teal-50/50 shadow-sm rounded-2xl overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-1 h-full bg-amber-400"></div>
-            <CardContent className="p-5">
-              <div className="flex justify-between items-start mb-3">
-                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none font-semibold">
-                  En Route
-                </Badge>
-                <span className="text-sm font-semibold text-teal-800">ETA: 15 mins</span>
+          {/* Live Tracking Card with Map */}
+          <Card className="border-teal-100 shadow-sm rounded-2xl overflow-hidden">
+            {/* Header row */}
+            <div className="px-4 pt-4 pb-3 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-slate-800">Emergency Plumbing Repair</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Today, 2:30 PM</p>
               </div>
-              <h3 className="font-bold text-slate-800 text-lg mb-1">Emergency Plumbing Repair</h3>
-              <p className="text-slate-600 text-sm mb-4">Today, 2:30 PM</p>
-              
-              <div className="flex items-center gap-3 pt-4 border-t border-teal-100/60">
+              <div className="flex flex-col items-end gap-1">
+                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none font-semibold text-xs">En Route</Badge>
+                <span className="text-xs font-bold text-teal-700">ETA 15 min</span>
+              </div>
+            </div>
+
+            {/* SVG Map */}
+            <div className="relative w-full h-44 bg-[#e8f0e8] overflow-hidden">
+              <svg viewBox="0 0 340 176" className="w-full h-full" style={{ fontFamily: "system-ui" }}>
+                {/* Map background */}
+                <rect width="340" height="176" fill="#e8ede8" />
+
+                {/* Blocks / buildings */}
+                <rect x="0"   y="0"   width="80"  height="60" fill="#dce8dc" />
+                <rect x="100" y="0"   width="90"  height="60" fill="#dce8dc" />
+                <rect x="210" y="0"   width="130" height="60" fill="#dce8dc" />
+                <rect x="0"   y="80"  width="60"  height="96" fill="#dce8dc" />
+                <rect x="80"  y="80"  width="110" height="96" fill="#dce8dc" />
+                <rect x="210" y="80"  width="130" height="96" fill="#dce8dc" />
+
+                {/* Roads (horizontal) */}
+                <rect x="0"   y="60"  width="340" height="20" fill="#fff" />
+                <rect x="0"   y="136" width="340" height="14" fill="#fff" />
+                {/* Roads (vertical) */}
+                <rect x="80"  y="0"   width="20"  height="176" fill="#fff" />
+                <rect x="190" y="0"   width="20"  height="176" fill="#fff" />
+
+                {/* Road center lines */}
+                <line x1="0" y1="70" x2="340" y2="70" stroke="#d1d5d1" strokeWidth="1" strokeDasharray="12,8" />
+                <line x1="90" y1="0" x2="90" y2="176" stroke="#d1d5d1" strokeWidth="1" strokeDasharray="12,8" />
+                <line x1="200" y1="0" x2="200" y2="176" stroke="#d1d5d1" strokeWidth="1" strokeDasharray="12,8" />
+
+                {/* Route path: from pro (left) to home (right) */}
+                <polyline
+                  points="60,100 90,100 90,70 200,70 200,100 240,100"
+                  fill="none"
+                  stroke="#0d9488"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Route animated overlay */}
+                <polyline
+                  points="60,100 90,100 90,70 200,70 200,100 240,100"
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="6,10"
+                  opacity="0.6"
+                >
+                  <animate attributeName="stroke-dashoffset" from="0" to="-32" dur="1.2s" repeatCount="indefinite" />
+                </polyline>
+
+                {/* Home destination pin */}
+                <circle cx="240" cy="100" r="14" fill="#fff" stroke="#0d9488" strokeWidth="2.5" />
+                <text x="240" y="104" textAnchor="middle" fontSize="13" fill="#0d9488">⌂</text>
+
+                {/* Pro location dot with pulse */}
+                <circle cx="60" cy="100" r="18" fill="#0d9488" opacity="0.15">
+                  <animate attributeName="r" values="14;22;14" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.2;0;0.2" dur="2s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="60" cy="100" r="11" fill="#0d9488" stroke="#fff" strokeWidth="3" />
+                <text x="60" y="104" textAnchor="middle" fontSize="10" fill="#fff" fontWeight="bold">MJ</text>
+
+                {/* Street labels */}
+                <text x="170" y="67" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600">MARKET ST</text>
+                <text x="90" y="120" textAnchor="middle" fontSize="7" fill="#9ca3af" fontWeight="600" transform="rotate(-90,90,120)">MAIN ST</text>
+              </svg>
+
+              {/* Speed / distance chip */}
+              <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-sm flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                <span className="text-xs font-bold text-slate-700">1.2 mi away</span>
+              </div>
+            </div>
+
+            {/* Provider row */}
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
                 <Avatar className="w-10 h-10">
-                  <AvatarFallback className="bg-slate-200 text-slate-600">MJ</AvatarFallback>
+                  <AvatarFallback className="bg-teal-100 text-teal-700 font-bold">MJ</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <p className="font-semibold text-slate-800 text-sm">Marcus Johnson</p>
-                  <p className="text-xs text-slate-500">Master Plumber</p>
+                  <p className="text-xs text-slate-500">Master Plumber · ★ 4.9</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="icon" variant="outline" className="w-9 h-9 rounded-full border-teal-200 text-teal-700 bg-white">
-                    <MapPin className="w-4 h-4" />
+                  <Button size="sm" variant="outline" className="rounded-xl border-teal-200 text-teal-700 text-xs h-8 px-3">
+                    Call
+                  </Button>
+                  <Button size="sm" className="rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs h-8 px-3">
+                    Track
                   </Button>
                 </div>
               </div>
