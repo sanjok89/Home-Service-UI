@@ -16,7 +16,16 @@ import { Separator } from "@/components/ui/separator";
 // Deep teal: text-slate-800, bg-slate-900 for dark mode, but we will use specific tailwind colors.
 // Teal-800 as primary brand, amber-500 as accent.
 
-type ViewState = "home" | "bookings" | "profile" | "provider_detail";
+type ViewState = "home" | "bookings" | "profile" | "provider_detail" | "booking_confirmation";
+
+interface BookingDetails {
+  provider: Provider;
+  day: string;
+  date: string;
+  time: string;
+  packageName: string;
+  packagePrice: number;
+}
 
 interface Provider {
   id: string;
@@ -42,10 +51,16 @@ const CATEGORIES = [
 export function HomeServicesApp() {
   const [view, setViewState] = useState<ViewState>("home");
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null);
   
   const navigateTo = (newView: ViewState, provider?: Provider) => {
     if (provider) setSelectedProvider(provider);
     setViewState(newView);
+  };
+
+  const confirmBooking = (details: BookingDetails) => {
+    setBookingDetails(details);
+    setViewState("booking_confirmation");
   };
 
   return (
@@ -71,12 +86,15 @@ export function HomeServicesApp() {
           {view === "bookings" && <BookingsScreen />}
           {view === "profile" && <ProfileScreen />}
           {view === "provider_detail" && selectedProvider && (
-            <ProviderDetailScreen provider={selectedProvider} onBack={() => navigateTo("home")} />
+            <ProviderDetailScreen provider={selectedProvider} onBack={() => navigateTo("home")} onConfirm={confirmBooking} />
+          )}
+          {view === "booking_confirmation" && bookingDetails && (
+            <BookingConfirmationScreen details={bookingDetails} onDone={() => navigateTo("bookings")} />
           )}
         </div>
 
         {/* Bottom Navigation */}
-        {view !== "provider_detail" && (
+        {view !== "provider_detail" && view !== "booking_confirmation" && (
           <div className="h-20 bg-white border-t border-slate-100 flex items-center justify-around px-2 pb-5 absolute bottom-0 w-full z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
             <NavItem 
               icon={<Home />} 
@@ -232,9 +250,10 @@ function HomeScreen({ onNavigate }: { onNavigate: (view: ViewState, provider?: P
   );
 }
 
-function ProviderDetailScreen({ provider, onBack }: { provider: Provider, onBack: () => void }) {
+function ProviderDetailScreen({ provider, onBack, onConfirm }: { provider: Provider, onBack: () => void, onConfirm: (details: BookingDetails) => void }) {
   const [selectedDay, setSelectedDay] = useState(2);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<{ name: string; price: number }>({ name: "Standard Service", price: provider.price * 2 });
 
   const days = [
     { day: "Mon", date: "14" },
@@ -245,6 +264,18 @@ function ProviderDetailScreen({ provider, onBack }: { provider: Provider, onBack
   ];
 
   const times = ["9:00 AM", "11:00 AM", "1:00 PM", "3:00 PM", "5:00 PM"];
+
+  const handleConfirm = () => {
+    if (!selectedTime) return;
+    onConfirm({
+      provider,
+      day: days[selectedDay].day,
+      date: days[selectedDay].date,
+      time: selectedTime,
+      packageName: selectedPackage.name,
+      packagePrice: selectedPackage.price,
+    });
+  };
 
   return (
     <div className="animate-in slide-in-from-right-8 duration-300 min-h-full bg-white flex flex-col">
@@ -288,20 +319,29 @@ function ProviderDetailScreen({ provider, onBack }: { provider: Provider, onBack
         <div className="px-6 py-6 border-b border-slate-100">
           <h2 className="text-lg font-bold text-slate-800 mb-4">Service Packages</h2>
           <div className="space-y-3">
-            <div className="border-2 border-amber-400 bg-amber-50/30 rounded-2xl p-4 flex justify-between items-center cursor-pointer">
-              <div>
-                <h3 className="font-bold text-slate-800 mb-1">Standard Service</h3>
-                <p className="text-sm text-slate-500">Up to 2 hours of work • Parts extra</p>
-              </div>
-              <div className="text-lg font-bold text-slate-800">${provider.price * 2}</div>
-            </div>
-            <div className="border border-slate-200 rounded-2xl p-4 flex justify-between items-center cursor-pointer hover:border-teal-200">
-              <div>
-                <h3 className="font-bold text-slate-800 mb-1">Premium Full Day</h3>
-                <p className="text-sm text-slate-500">Up to 8 hours • Priority support</p>
-              </div>
-              <div className="text-lg font-bold text-slate-800">${provider.price * 7}</div>
-            </div>
+            {[
+              { name: "Standard Service", desc: "Up to 2 hours of work • Parts extra", price: provider.price * 2 },
+              { name: "Premium Full Day", desc: "Up to 8 hours • Priority support", price: provider.price * 7 },
+            ].map((pkg) => {
+              const active = selectedPackage.name === pkg.name;
+              return (
+                <div
+                  key={pkg.name}
+                  onClick={() => setSelectedPackage({ name: pkg.name, price: pkg.price })}
+                  className={`rounded-2xl p-4 flex justify-between items-center cursor-pointer transition-all ${
+                    active
+                      ? "border-2 border-amber-400 bg-amber-50/30"
+                      : "border border-slate-200 hover:border-teal-200"
+                  }`}
+                >
+                  <div>
+                    <h3 className="font-bold text-slate-800 mb-1">{pkg.name}</h3>
+                    <p className="text-sm text-slate-500">{pkg.desc}</p>
+                  </div>
+                  <div className="text-lg font-bold text-slate-800">${pkg.price}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -349,8 +389,139 @@ function ProviderDetailScreen({ provider, onBack }: { provider: Provider, onBack
         <Button 
           className="w-full h-14 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white text-lg font-bold shadow-lg shadow-teal-600/20"
           disabled={!selectedTime}
+          onClick={handleConfirm}
         >
           {selectedTime ? `Schedule for ${selectedTime}` : 'Select a time'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function BookingConfirmationScreen({ details, onDone }: { details: BookingDetails, onDone: () => void }) {
+  const [confirmed, setConfirmed] = useState(false);
+
+  const handleConfirm = () => setConfirmed(true);
+
+  if (confirmed) {
+    return (
+      <div className="animate-in fade-in duration-500 min-h-full bg-white flex flex-col items-center justify-center px-8 text-center">
+        <div className="w-24 h-24 rounded-full bg-teal-50 flex items-center justify-center mb-6 shadow-inner">
+          <svg className="w-12 h-12 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-slate-800 mb-2">Booking Confirmed!</h1>
+        <p className="text-slate-500 mb-2 text-sm leading-relaxed">
+          Your appointment with <span className="font-semibold text-slate-700">{details.provider.name}</span> is confirmed for
+        </p>
+        <p className="text-teal-700 font-bold text-lg mb-8">{details.day}, Nov {details.date} at {details.time}</p>
+        <div className="w-full bg-slate-50 rounded-2xl p-4 mb-8 text-left space-y-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Service</span>
+            <span className="font-semibold text-slate-800">{details.provider.specialty}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Package</span>
+            <span className="font-semibold text-slate-800">{details.packageName}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Address</span>
+            <span className="font-semibold text-slate-800">1234 Market St, SF</span>
+          </div>
+          <div className="h-px bg-slate-200" />
+          <div className="flex justify-between text-base">
+            <span className="font-bold text-slate-800">Total</span>
+            <span className="font-bold text-teal-700">${details.packagePrice}</span>
+          </div>
+        </div>
+        <Button className="w-full h-12 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold" onClick={onDone}>
+          View My Bookings
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-in slide-in-from-right-8 duration-300 min-h-full bg-slate-50">
+      {/* Header */}
+      <div className="bg-white px-6 pt-6 pb-5 border-b border-slate-100">
+        <h1 className="text-2xl font-bold text-slate-800 mb-1">Confirm Booking</h1>
+        <p className="text-slate-500 text-sm">Review your booking details before confirming</p>
+      </div>
+
+      <div className="px-6 py-6 space-y-4">
+        {/* Provider card */}
+        <div className="bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-slate-100">
+          <Avatar className="w-14 h-14">
+            <AvatarFallback className="bg-teal-100 text-teal-700 font-bold text-xl">{details.provider.avatar}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <h3 className="font-bold text-slate-800">{details.provider.name}</h3>
+            <p className="text-sm text-slate-500">{details.provider.specialty}</p>
+            <div className="flex items-center gap-1 mt-1">
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span className="text-sm font-medium text-slate-700">{details.provider.rating} · {details.provider.reviews} reviews</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Date & Time */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Date &amp; Time</h3>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-teal-700" />
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">{details.day}, November {details.date}</p>
+              <p className="text-sm text-slate-500">{details.time}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Service & Address */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Service Details</h3>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Package</span>
+            <span className="font-semibold text-slate-800">{details.packageName}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Address</span>
+            <span className="font-semibold text-slate-800">1234 Market St, SF</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Payment</span>
+            <span className="font-semibold text-slate-800">Visa •••• 4242</span>
+          </div>
+        </div>
+
+        {/* Price Summary */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-2">
+          <div className="flex justify-between text-sm text-slate-500">
+            <span>{details.packageName}</span>
+            <span>${details.packagePrice}</span>
+          </div>
+          <div className="flex justify-between text-sm text-slate-500">
+            <span>Platform fee</span>
+            <span>$5</span>
+          </div>
+          <div className="h-px bg-slate-100 my-1" />
+          <div className="flex justify-between font-bold text-slate-800">
+            <span>Total</span>
+            <span className="text-teal-700">${details.packagePrice + 5}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div className="px-6 pb-10">
+        <Button
+          className="w-full h-14 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-lg font-bold shadow-lg shadow-amber-500/25"
+          onClick={handleConfirm}
+        >
+          Confirm &amp; Pay ${details.packagePrice + 5}
         </Button>
       </div>
     </div>
